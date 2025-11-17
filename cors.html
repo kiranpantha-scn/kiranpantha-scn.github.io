@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastAPI CORS Test Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        input,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #E0E0E0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667EEA;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-test {
+            background: #667EEA;
+            color: white;
+        }
+        .btn-test:hover {
+            background: #5568D3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-clear {
+            background: #F1F1F1;
+            color: #333;
+        }
+        .btn-clear:hover {
+            background: #E0E0E0;
+        }
+        .response-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #F8F9FA;
+            border-radius: 8px;
+            border-left: 4px solid #667EEA;
+        }
+        .response-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .response-content {
+            background: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .status.success {
+            background: #D4EDDA;
+            color: #155724;
+        }
+        .status.error {
+            background: #F8D7DA;
+            color: #721C24;
+        }
+        .info-box {
+            background: #E7F3FF;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #1976D2;
+        }
+        .info-box strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>:test_tube: FastAPI CORS Test Client</h1>
+        <p class="subtitle">Test your dynamic CORS implementation with proper headers</p>
+        <div class="info-box">
+            <strong>:information_source: Instructions:</strong>
+            1. Fill in your FastAPI endpoint URL<br>
+            2. Enter a valid chatbot ID from your database<br>
+            3. Set your current origin (this page's origin is auto-filled)<br>
+            4. Click "Send Test Request" to check CORS
+        </div>
+        <div class="form-group">
+            <label for="apiUrl">FastAPI Endpoint URL</label>
+            <input type="text" id="apiUrl" placeholder="http://localhost:8000/api/public/chat"
+                value="http://myapp.local:8080/api/public/chat">
+        </div>
+        <div class="form-group">
+            <label for="chatbotId">Chatbot ID</label>
+            <input type="text" id="chatbotId" placeholder="Enter your chatbot ID" value="">
+        </div>
+        <div class="form-group">
+            <label for="origin">Origin (Current Page Origin)</label>
+            <input type="text" id="origin" readonly value="">
+        </div>
+        <div class="form-group">
+            <label for="sharedKey">X-Shared-Key (Optional)</label>
+            <input type="text" id="sharedKey" placeholder="Enter shared key if required" value="">
+        </div>
+        <div class="form-group">
+            <label for="method">HTTP Method</label>
+            <select id="method">
+                <option value="GET">GET</option>
+                <option value="POST" selected>POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="requestBody">Request Body (for POST/PUT)</label>
+            <input type="text" id="requestBody" placeholder='{"message": "test"}' value='{"query": "Tell me about smart contents japan"}'>
+        </div>
+        <div class="button-group">
+            <button class="btn-test" onclick="sendRequest()">:rocket: Send Test Request</button>
+            <button class="btn-clear" onclick="clearResponse()">:wastebasket: Clear Response</button>
+        </div>
+        <div id="responseContainer" style="display: none;" class="response-container">
+            <div class="response-title">Response:</div>
+            <div id="status"></div>
+            <div class="response-content" id="response"></div>
+        </div>
+    </div>
+    <script>
+        // Set current origin on page load
+        document.getElementById('origin').value = window.location.origin;
+        async function sendRequest() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const chatbotId = document.getElementById('chatbotId').value.trim();
+            const sharedKey = document.getElementById('sharedKey').value.trim();
+            const method = document.getElementById('method').value; // you can leave POST selected
+            const requestBody = document.getElementById('requestBody').value.trim();
+            if (!apiUrl || !chatbotId) {
+                alert('Please fill in API URL and Chatbot ID');
+                return;
+            }
+            const responseContainer = document.getElementById('responseContainer');
+            const responseDiv = document.getElementById('response');
+            const statusDiv = document.getElementById('status');
+            responseContainer.style.display = 'block';
+            // Extract query from the input box (accepts either {"query":"Hello"} or plain "Hello")
+            let queryVal = '';
+            try {
+                const maybeJson = JSON.parse(requestBody);
+                if (maybeJson && typeof maybeJson === 'object' && typeof maybeJson.query === 'string') {
+                    queryVal = maybeJson.query;
+                }
+            } catch (_) {
+                // not JSON — treat entire field as the query string
+                if (requestBody) queryVal = requestBody;
+            }
+            // Build URL with ?query=... (URL-encoded)
+            const urlObj = new URL(apiUrl);
+            if (queryVal) urlObj.searchParams.set('query', queryVal);
+            // Headers to mirror Swagger/curl
+            const headers = {
+                'Accept': 'application/json',
+                'chatbot-id': chatbotId,
+                'X-API-Key': 'base64:xKXeTjNJyhY6D9HIyXEi45SCkzL3cDV9d4XGWjvG+o0=',
+                // 'session-id': 'session-id', // uncomment if your route expects it
+                'Application-Type': 'test-client'
+            };
+            if (sharedKey) headers['X-Shared-Key'] = sharedKey;
+            // Note: no body and no Content-Type, because the API expects query param
+            const options = { method: method || 'POST', headers };
+            // show what we’re sending
+            responseDiv.textContent = 'Sending request...\n\n' +
+                JSON.stringify({ url: urlObj.toString(), method: options.method, headers }, null, 2);
+            try {
+                const t0 = performance.now();
+                const res = await fetch(urlObj.toString(), options);
+                const t1 = performance.now();
+                const text = await res.text();
+                let body;
+                try { body = JSON.parse(text); } catch { body = text; }
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': res.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': res.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': res.headers.get('Access-Control-Allow-Headers'),
+                };
+                const result = {
+                    success: res.ok,
+                    status: res.status,
+                    statusText: res.statusText,
+                    responseTime: `${Math.round(t1 - t0)}ms`,
+                    corsHeaders,
+                    body
+                };
+                statusDiv.innerHTML = res.ok
+                    ? `<span class="status success">:white_check_mark: SUCCESS - Status ${res.status}</span>`
+                    : `<span class="status error">:x: ERROR - Status ${res.status}</span>`;
+                responseDiv.textContent = JSON.stringify(result, null, 2);
+            } catch (err) {
+                statusDiv.innerHTML = `<span class="status error">:x: CORS ERROR</span>`;
+                responseDiv.textContent = `CORS/network error: ${err.message}`;
+            }
+        }
+        function clearResponse() {
+            document.getElementById('responseContainer').style.display = 'none';
+            document.getElementById('response').textContent = '';
+            document.getElementById('status').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
