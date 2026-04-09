@@ -1,0 +1,1979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Form Simulator</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            padding: 24px;
+            color: #1d1d1f;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            padding: 40px 0 32px;
+        }
+        header h1 {
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: -0.015em;
+            color: #ffffff;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        header p { 
+            color: rgba(255, 255, 255, 0.85); 
+            font-size: 17px;
+            font-weight: 400;
+            letter-spacing: -0.022em;
+        }
+        
+        /* macOS 26 White Card */
+        .card {
+            background: #ffffff;
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 20px;
+            padding: 28px;
+            margin-bottom: 20px;
+            box-shadow:
+                0 8px 32px rgba(0, 0, 0, 0.08),
+                0 2px 8px rgba(0, 0, 0, 0.04);
+            color: #1d1d1f;
+        }
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.021em;
+        }
+        .card-title .icon { font-size: 22px; }
+
+        /* Upload area */
+        .upload-zone {
+            border: 2px dashed rgba(0, 122, 255, 0.3);
+            border-radius: 16px;
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(255, 255, 255, 0.4);
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #007aff;
+            background: rgba(0, 122, 255, 0.08);
+            transform: scale(1.01);
+        }
+        .upload-zone .icon { font-size: 56px; margin-bottom: 16px; }
+        .upload-zone p { 
+            color: #1d1d1f; 
+            margin-bottom: 8px; 
+            font-size: 17px;
+            font-weight: 500;
+        }
+        .upload-zone .hint { 
+            font-size: 13px; 
+            color: #86868b; 
+        }
+        #fileInput { display: none; }
+
+        /* Config inputs */
+        .config-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .config-group { flex: 1; }
+        .config-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #6e6e73;
+            margin-bottom: 6px;
+            letter-spacing: -0.022em;
+        }
+        .config-group input {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            color: #1d1d1f;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        .config-group input:focus {
+            outline: none;
+            border-color: #007aff;
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
+        }
+
+        /* Buttons - macOS 26 style */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 980px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: -0.022em;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn:hover { 
+            transform: scale(1.04);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .btn:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed; 
+            transform: none; 
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #007aff, #5856d6);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #34c759, #30d158);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #ff3b30, #ff453a);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(255, 59, 48, 0.3);
+        }
+        .btn-secondary {
+            background: rgba(142, 142, 147, 0.2);
+            color: #1d1d1f;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        /* Progress */
+        .progress-bar-container {
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 12px;
+            height: 28px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007aff, #5856d6, #af52de);
+            background-size: 200% 100%;
+            animation: shimmer 2s ease-in-out infinite;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #ffffff;
+            letter-spacing: -0.022em;
+        }
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Events log */
+        .events-log {
+            max-height: 280px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.04);
+            border-radius: 12px;
+            padding: 14px;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+        }
+        .event-item {
+            padding: 8px 10px;
+            border-left: 3px solid transparent;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.5);
+        }
+        .event-item.info { border-color: #007aff; }
+        .event-item.success { border-color: #34c759; }
+        .event-item.error { border-color: #ff3b30; }
+        .event-time { color: #86868b; margin-right: 8px; }
+        .event-name { color: #1d1d1f; font-weight: 600; }
+        .event-data { color: #6e6e73; margin-left: 4px; }
+
+        /* Field form */
+        .field-form { display: none; }
+        .field-form.active { display: block; }
+        .field-label {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 6px;
+            letter-spacing: -0.021em;
+        }
+        .field-type-badge {
+            display: inline-block;
+            background: rgba(0, 122, 255, 0.12);
+            color: #007aff;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 14px;
+            letter-spacing: -0.022em;
+        }
+        .field-help {
+            font-size: 15px;
+            color: #6e6e73;
+            margin-bottom: 18px;
+            line-height: 1.4;
+        }
+        .field-input {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            color: #1d1d1f;
+            font-size: 16px;
+            margin-bottom: 14px;
+            transition: all 0.2s;
+        }
+        .field-input:focus { 
+            outline: none; 
+            border-color: #007aff;
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
+        }
+        .field-options { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            margin-bottom: 14px; 
+        }
+        .field-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .field-option:hover { 
+            border-color: #007aff;
+            background: rgba(0, 122, 255, 0.06);
+        }
+        .field-option input[type="radio"], 
+        .field-option input[type="checkbox"] {
+            accent-color: #007aff;
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Fields table */
+        .fields-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 14px;
+        }
+        .fields-table th {
+            text-align: left;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.04);
+            color: #6e6e73;
+            font-weight: 600;
+            letter-spacing: -0.022em;
+        }
+        .fields-table th:first-child {
+            border-top-left-radius: 10px;
+        }
+        .fields-table th:last-child {
+            border-top-right-radius: 10px;
+        }
+        .fields-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        .fields-table tr.filled { 
+            background: rgba(52, 199, 89, 0.06); 
+        }
+        .fields-table tr.pending { 
+            background: rgba(0, 122, 255, 0.04); 
+        }
+        .fields-table tr:last-child td {
+            border-bottom: none;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: -0.022em;
+        }
+        .status-badge.filled { 
+            background: rgba(52, 199, 89, 0.15); 
+            color: #248a3d; 
+        }
+        .status-badge.pending { 
+            background: rgba(0, 122, 255, 0.12); 
+            color: #007aff; 
+        }
+
+        /* Completion banner */
+        .completion-banner {
+            display: none;
+            background: rgba(52, 199, 89, 0.15);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid rgba(52, 199, 89, 0.3);
+            border-radius: 20px;
+            padding: 28px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(52, 199, 89, 0.15);
+        }
+        .completion-banner.active { display: block; }
+        .completion-banner h2 { 
+            color: #248a3d; 
+            margin-bottom: 10px; 
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.021em;
+        }
+        .completion-banner p { 
+            color: #34c759; 
+            font-size: 17px;
+        }
+
+        /* Hidden class */
+        .hidden { display: none !important; }
+
+        /* Step indicator */
+        .steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            position: relative;
+        }
+        .steps::before {
+            content: '';
+            position: absolute;
+            top: 18px;
+            left: 10%;
+            right: 10%;
+            height: 2px;
+            background: rgba(0, 0, 0, 0.08);
+            z-index: 0;
+        }
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+            flex: 1;
+        }
+        .step-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.6);
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: #86868b;
+            margin-bottom: 6px;
+            transition: all 0.3s;
+        }
+        .step.active .step-circle {
+            background: linear-gradient(135deg, #007aff, #5856d6);
+            border-color: #007aff;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+        }
+        .step.completed .step-circle {
+            background: #34c759;
+            border-color: #34c759;
+            color: #fff;
+        }
+        .step-label {
+            font-size: 11px;
+            color: #86868b;
+            text-align: center;
+            letter-spacing: -0.022em;
+        }
+        .step.active .step-label { color: #007aff; font-weight: 600; }
+        .step.completed .step-label { color: #34c759; }
+
+        /* Download button */
+        .btn-download {
+            background: linear-gradient(135deg, #5856d6, #af52de);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(88, 86, 214, 0.3);
+        }
+        .btn-bulk {
+            background: linear-gradient(135deg, #ff9500, #ff6b00);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3);
+        }
+        .btn-bulk:hover {
+            box-shadow: 0 4px 16px rgba(255, 149, 0, 0.4);
+        }
+
+        /* Bulk fill panel */
+        .bulk-fill-panel {
+            background: rgba(255, 149, 0, 0.06);
+            border: 1px solid rgba(255, 149, 0, 0.2);
+            border-radius: 14px;
+            padding: 18px;
+            margin-top: 14px;
+        }
+        .bulk-fill-panel h4 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-type-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .form-type-row label {
+            font-size: 13px;
+            color: #6e6e73;
+            font-weight: 500;
+        }
+        .form-type-select {
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            color: #1d1d1f;
+            font-size: 14px;
+            min-width: 200px;
+        }
+        .form-type-select:focus {
+            outline: none;
+            border-color: #ff9500;
+            box-shadow: 0 0 0 4px rgba(255, 149, 0, 0.12);
+        }
+        .bulk-fill-status {
+            font-size: 12px;
+            color: #86868b;
+            margin-top: 8px;
+        }
+
+        /* Finalized info */
+        .finalized-info {
+            background: rgba(52, 199, 89, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+        .finalized-info p {
+            font-size: 13px;
+            color: #6e6e73;
+            margin-bottom: 4px;
+        }
+        .finalized-info p strong { color: #1d1d1f; }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Completed fields summary item */
+        .completed-field-item {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 12px;
+            padding: 14px;
+            transition: all 0.2s;
+        }
+        .completed-field-item:hover {
+            border-color: rgba(0, 122, 255, 0.3);
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.1);
+        }
+        .completed-field-key {
+            font-size: 11px;
+            font-weight: 600;
+            color: #007aff;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+        .completed-field-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1d1d1f;
+            margin-bottom: 6px;
+        }
+        .completed-field-value {
+            font-size: 15px;
+            color: #1d1d1f;
+            font-weight: 600;
+            word-break: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 Application Form Simulator</h1>
+            <p>Upload a PDF, extract fields, and fill them interactively</p>
+        </header>
+
+        <!-- Step Indicator -->
+        <div class="steps" id="stepsIndicator">
+            <div class="step" id="step1">
+                <div class="step-circle">1</div>
+                <div class="step-label">Upload PDF</div>
+            </div>
+            <div class="step" id="step2">
+                <div class="step-circle">2</div>
+                <div class="step-label">Extract Fields</div>
+            </div>
+            <div class="step" id="step3">
+                <div class="step-circle">3</div>
+                <div class="step-label">Fill Fields</div>
+            </div>
+            <div class="step" id="step4">
+                <div class="step-circle">4</div>
+                <div class="step-label">Finalize</div>
+            </div>
+            <div class="step" id="step5">
+                <div class="step-circle">5</div>
+                <div class="step-label">Download</div>
+            </div>
+        </div>
+
+        <!-- Config Card -->
+        <div class="card" id="configCard">
+            <div class="card-title"><span class="icon">⚙️</span> Configuration</div>
+            <div class="config-row">
+                <div class="config-group">
+                    <label for="baseUrl">API Base URL</label>
+                    <input type="text" id="baseUrl" value="http://127.0.0.1:9090" placeholder="http://127.0.0.1:9090">
+                </div>
+                <div class="config-group">
+                    <label for="apiKey">Shared API Key</label>
+                    <input type="password" id="apiKey" value="test" placeholder="API key">
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Card -->
+        <div class="card" id="uploadCard">
+            <div class="card-title"><span class="icon">📄</span> Upload Application Form PDF</div>
+            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                <div class="icon">📤</div>
+                <p>Click or drag a PDF file here</p>
+                <div class="hint">Only .pdf files accepted</div>
+            </div>
+            <input type="file" id="fileInput" accept=".pdf">
+            <div id="selectedFile" style="margin-top: 12px; font-size: 13px; color: #94a3b8; display: none;">
+                📎 <span id="fileName"></span>
+            </div>
+            <div style="margin-top: 16px; text-align: center;">
+                <button class="btn btn-primary" id="uploadBtn" onclick="uploadAndExtract()" disabled>
+                    Upload & Extract Fields
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress Card -->
+        <div class="card hidden" id="progressCard">
+            <div class="card-title"><span class="icon">⏳</span> Processing</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="progressFill" style="width: 0%">0%</div>
+            </div>
+            <div style="margin-top: 8px; font-size: 13px; color: #94a3b8;" id="progressText">
+                Starting...
+            </div>
+        </div>
+
+        <!-- Events Log Card -->
+        <div class="card hidden" id="eventsCard">
+            <div class="card-title"><span class="icon">📡</span> Socket Events Log</div>
+            <div class="events-log" id="eventsLog"></div>
+        </div>
+
+        <!-- Completion Banner -->
+        <div class="completion-banner" id="completionBanner">
+            <h2>✅ All Fields Completed!</h2>
+            <p>All form fields have been collected successfully.</p>
+            <div id="finalizedInfo" class="finalized-info" style="display: none; text-align: left; max-width: 500px; margin: 16px auto 0;">
+                <p><strong>Finalized at:</strong> <span id="finalizedAt"></span></p>
+                <p><strong>Output PDF:</strong> <span id="outputPdfPath"></span></p>
+            </div>
+            <div style="margin-top: 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn btn-download" id="downloadBtn" onclick="downloadFinalizedPDF()" style="display: none;">
+                    📥 Download Finalized PDF
+                </button>
+                <button class="btn btn-success" onclick="finalizeForm()">Finalize Form</button>
+                <button class="btn btn-secondary" onclick="resetForm()">Start Over</button>
+            </div>
+        </div>
+
+        <!-- Field Entry Card -->
+        <div class="card field-form" id="fieldCard">
+            <div class="card-title"><span class="icon">✏️</span> Fill Field</div>
+            <div id="fieldLabel" class="field-label"></div>
+            <div id="fieldTypeBadge" class="field-type-badge"></div>
+            <div id="fieldHelp" class="field-help"></div>
+            <div id="fieldInputArea"></div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" id="submitFieldBtn" onclick="submitField()">Submit</button>
+                <button class="btn btn-success hidden" id="nextFieldBtn" onclick="loadNextField()">Next Field →</button>
+            </div>
+        </div>
+
+        <!-- Fields Overview Card -->
+        <div class="card hidden" id="fieldsOverviewCard">
+            <div class="card-title"><span class="icon">📋</span> Fields Overview</div>
+            <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span id="fieldsProgressText" style="font-size: 13px; color: #94a3b8;">0 / 0 filled</span>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-primary" style="padding: 6px 14px; font-size: 12px;" onclick="loadNextField()">Fill Next Field</button>
+                    <button class="btn btn-bulk" id="bulkFillBtn" style="padding: 6px 14px; font-size: 12px;" onclick="toggleBulkFill()">⚡ Auto-Fill All</button>
+                </div>
+            </div>
+
+            <!-- Bulk Fill Panel (hidden by default) -->
+            <div class="bulk-fill-panel" id="bulkFillPanel" style="display: none;">
+                <h4>⚡ Auto-Fill Remaining Fields</h4>
+                <div class="form-type-row">
+                    <label for="formType">Form Type:</label>
+                    <select class="form-type-select" id="formType">
+                        <option value="generic">Generic / Random</option>
+                        <option value="personal_japanese">Personal (Japanese Name)</option>
+                        <option value="personal_foreign">Personal (Foreign Name)</option>
+                        <option value="employment">Employment / Work</option>
+                        <option value="visa">Visa / Immigration</option>
+                        <option value="bank">Bank / Financial</option>
+                        <option value="medical">Medical / Health</option>
+                        <option value="education">Education / Academic</option>
+                    </select>
+                    <button class="btn btn-bulk" style="padding: 8px 20px; font-size: 13px;" id="bulkFillSubmit" onclick="bulkRandomize()">
+                        Fill All Remaining
+                    </button>
+                </div>
+                <div class="bulk-fill-status" id="bulkFillStatus">
+                    Select a form type and click "Fill All Remaining" to auto-fill all unfilled fields.
+                </div>
+            </div>
+
+            <div style="overflow-x: auto; margin-top: 14px;">
+                <table class="fields-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Field Key</th>
+                            <th>Label</th>
+                            <th>Type</th>
+                            <th>Required</th>
+                            <th>Status</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fieldsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Completed Fields Summary Card -->
+        <div class="card hidden" id="completedFieldsCard">
+            <div class="card-title"><span class="icon">✅</span> Completed Fields Summary</div>
+            <div id="completedFieldsContent" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // ========================
+        // State
+        // ========================
+        let socket = null;
+        let requestId = null;
+        let fieldsDefinition = [];
+        let fieldsCollected = {};
+        let currentFieldIndex = -1;
+        let selectedFile = null;
+        let isFinalized = false;
+        let outputPdfUrl = null;
+
+        // ========================
+        // DOM refs
+        // ========================
+        const $ = id => document.getElementById(id);
+        const fileInput = $('fileInput');
+        const uploadZone = $('uploadZone');
+        const uploadBtn = $('uploadBtn');
+
+        // ========================
+        // File selection
+        // ========================
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                $('fileName').textContent = selectedFile.name;
+                $('selectedFile').style.display = 'block';
+                uploadBtn.disabled = false;
+            }
+        });
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0 && e.dataTransfer.files[0].name.toLowerCase().endsWith('.pdf')) {
+                fileInput.files = e.dataTransfer.files;
+                fileInput.dispatchEvent(new Event('change'));
+            }
+        });
+
+        // ========================
+        // Socket.IO setup
+        // ========================
+        function connectSocket() {
+            const baseUrl = $('baseUrl').value.trim();
+            const apiKey = $('apiKey').value.trim();
+
+            if (socket && socket.connected) return;
+
+            socket = io(baseUrl, {
+                transports: ['websocket', 'polling'],
+                auth: { 'x-shared-key': apiKey }
+            });
+
+            socket.on('connect', () => logEvent('info', 'socket_connected', 'Connected to server'));
+            socket.on('disconnect', () => logEvent('error', 'socket_disconnected', 'Disconnected from server'));
+
+            // Application form events
+            socket.on('application_form_extraction_started', (data) => {
+                logEvent('info', 'extraction_started', `File: ${data.filename} (${data.size} bytes)`);
+                updateStep(2); // Extract Fields
+            });
+
+            socket.on('application_form_ocr_started', (data) => {
+                logEvent('info', 'ocr_started', `Total pages: ${data.total_pages}`);
+            });
+
+            socket.on('application_form_ocr_progress', (data) => {
+                logEvent('info', 'ocr_progress', `Page ${data.page}/${data.total_pages}, fields so far: ${data.fields_found_so_far}`);
+                const pct = Math.round((data.page / data.total_pages) * 100);
+                $('progressFill').style.width = `${pct}%`;
+                $('progressFill').textContent = `${pct}%`;
+                $('progressText').textContent = `Processing page ${data.page} of ${data.total_pages}...`;
+            });
+
+            socket.on('application_form_extraction_completed', (data) => {
+                logEvent('success', 'extraction_completed', `Total fields: ${data.total_fields}`);
+                $('progressFill').style.width = '100%';
+                $('progressFill').textContent = '100%';
+                $('progressText').textContent = 'Extraction complete!';
+                updateStep(2, true); // Mark Extract Fields as completed
+
+                // Fetch the fields definitions via status endpoint
+                loadFieldsAfterExtraction();
+            });
+
+            socket.on('application_form_extraction_failed', (data) => {
+                logEvent('error', 'extraction_failed', data.detail || 'Unknown error');
+                $('progressText').textContent = 'Extraction failed.';
+                updateStep(2);
+                $('step2').classList.remove('active');
+            });
+
+            socket.on('application_form_field_submitted', (data) => {
+                logEvent('info', 'field_submitted', `${data.field_key} submitted (${data.fields_collected_count}/${data.total_fields})`);
+                fieldsCollected[data.field_key] = data.value;
+                updateFieldsTable();
+
+                if (data.is_complete) {
+                    updateStep(3, true); // Mark Fill Fields as completed
+                }
+
+                if (data.next_field) {
+                    showFieldForm(data.next_field);
+                }
+            });
+
+            socket.on('application_form_finalized', (data) => {
+                logEvent('success', 'form_finalized', `${data.total_fields} fields collected`);
+                isFinalized = true;
+                updateStep(4, true); // Mark Finalize as completed
+
+                // Show finalized info
+                if (data.finalized_at) {
+                    $('finalizedAt').textContent = new Date(data.finalized_at).toLocaleString();
+                    $('finalizedInfo').style.display = 'block';
+                }
+                if (data.output_pdf) {
+                    $('outputPdfPath').textContent = data.output_pdf;
+                    outputPdfUrl = data.output_pdf;
+                }
+
+                // Show download button if we have the PDF path
+                if (data.output_pdf || requestId) {
+                    $('downloadBtn').style.display = 'inline-block';
+                    updateStep(5); // Move to Download step
+                }
+            });
+
+            socket.on('application_form_error', (data) => {
+                logEvent('error', 'form_error', data.message);
+            });
+
+            socket.on('thread_joined', (data) => {
+                logEvent('info', 'thread_joined', `Joined thread for request: ${data.request_id}`);
+            });
+        }
+
+        // ========================
+        // Upload & Extract
+        // ========================
+        async function uploadAndExtract() {
+            if (!selectedFile) return;
+
+            const baseUrl = $('baseUrl').value.trim();
+            const apiKey = $('apiKey').value.trim();
+
+            // Connect socket first
+            connectSocket();
+
+            // Show progress and events cards
+            $('progressCard').classList.remove('hidden');
+            $('eventsCard').classList.remove('hidden');
+            $('progressFill').style.width = '0%';
+            $('progressFill').textContent = '0%';
+            $('progressText').textContent = 'Uploading PDF...';
+            clearEventsLog();
+
+            // Disable upload
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Processing...';
+
+            // Update step indicator
+            updateStep(1);
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const res = await fetch(`${baseUrl}/api/application_form/extract-fields`, {
+                    method: 'POST',
+                    headers: { 'x-shared-key': apiKey },
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: res.statusText }));
+                    throw new Error(err.detail || 'Upload failed');
+                }
+
+                const data = await res.json();
+                requestId = data.request_id;
+                // Fields will be populated after extraction completes via socket event
+
+                logEvent('success', 'api_response', `Request ID: ${requestId}`);
+                $('progressText').textContent = 'Waiting for extraction to complete...';
+
+                // Join socket thread
+                socket.emit('join_thread', { request_id: requestId });
+
+            } catch (err) {
+                logEvent('error', 'upload_error', err.message);
+                $('progressText').textContent = `Error: ${err.message}`;
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload & Extract Fields';
+            }
+        }
+
+        // ========================
+        // Load fields after extraction completes
+        // ========================
+        async function loadFieldsAfterExtraction() {
+            if (!requestId) return;
+
+            const baseUrl = $('baseUrl').value.trim();
+            const apiKey = $('apiKey').value.trim();
+
+            try {
+                // Get status to see collected fields and remaining count
+                const statusRes = await fetch(`${baseUrl}/api/application_form/status?request_id=${requestId}`, {
+                    method: 'GET',
+                    headers: { 'x-shared-key': apiKey }
+                });
+
+                if (!statusRes.ok) {
+                    throw new Error('Failed to get status');
+                }
+
+                const statusData = await statusRes.json();
+                fieldsCollected = statusData.fields_collected || {};
+
+                // Get the first field definition via next-field
+                const nextRes = await fetch(`${baseUrl}/api/application_form/next-field?request_id=${requestId}`, {
+                    headers: { 'x-shared-key': apiKey }
+                });
+
+                if (!nextRes.ok || nextRes.status === 204) {
+                    logEvent('error', 'no_fields', 'No field definitions found after extraction');
+                    return;
+                }
+
+                const firstField = await nextRes.json();
+                if (!firstField) {
+                    logEvent('info', 'no_more_fields', 'All fields already filled');
+                    $('completionBanner').classList.add('active');
+                    updateStep(3, true);
+                    return;
+                }
+
+                // Initialize with first field, we'll collect definitions as we go
+                fieldsDefinition = [firstField];
+                currentFieldIndex = 0;
+
+                logEvent('success', 'fields_loaded', `${statusData.total_fields} fields ready for input`);
+
+                // Show fields overview and field card
+                $('fieldsOverviewCard').classList.remove('hidden');
+                updateFieldsTable();
+
+                // Move to Fill Fields step
+                updateStep(3);
+
+                // Show first field form
+                showFieldForm(firstField);
+
+            } catch (err) {
+                logEvent('error', 'load_fields_error', err.message);
+            }
+        }
+
+        // ========================
+        // Field rendering
+        // ========================
+        function getNextUnfilledField() {
+            for (let i = 0; i < fieldsDefinition.length; i++) {
+                if (!(fieldsDefinition[i].field_key in fieldsCollected)) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        async function loadNextField() {
+            // First check if we have any unfilled fields locally
+            let idx = getNextUnfilledField();
+            if (idx === -1) {
+                // All local fields filled, check if there are more on the server
+                const baseUrl = $('baseUrl').value.trim();
+                const apiKey = $('apiKey').value.trim();
+
+                try {
+                    const nextRes = await fetch(`${baseUrl}/api/application_form/next-field?request_id=${requestId}`, {
+                        headers: { 'x-shared-key': apiKey }
+                    });
+
+                    if (nextRes.ok) {
+                        const nextField = await nextRes.json();
+                        if (nextField) {
+                            // Add to our list and show it
+                            fieldsDefinition.push(nextField);
+                            currentFieldIndex = fieldsDefinition.length - 1;
+                            showFieldForm(nextField);
+                            updateFieldsTable();
+                            return;
+                        }
+                    }
+
+                    // No more fields on server
+                    $('fieldCard').classList.remove('active');
+                    $('completionBanner').classList.add('active');
+                    updateStep(3, true);
+                } catch (err) {
+                    logEvent('error', 'load_next_error', err.message);
+                }
+                return;
+            }
+
+            currentFieldIndex = idx;
+            showFieldForm(fieldsDefinition[idx]);
+            updateFieldsTable();
+        }
+
+        function showFieldForm(field) {
+            $('fieldCard').classList.add('active');
+            $('fieldLabel').textContent = `${field.label}${field.required ? ' *' : ''}`;
+            $('fieldTypeBadge').textContent = field.field_type;
+            $('fieldHelp').textContent = field.help_text || '';
+            $('nextFieldBtn').classList.add('hidden');
+
+            const area = $('fieldInputArea');
+            area.innerHTML = '';
+
+            const ft = (field.field_type || 'text').toLowerCase();
+
+            if (ft === 'checkbox') {
+                const div = document.createElement('div');
+                div.className = 'field-options';
+                const label = document.createElement('label');
+                label.className = 'field-option';
+                label.style.cursor = 'pointer';
+                label.style.userSelect = 'none';
+
+                // Hidden input to store value
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.id = 'fieldValueCheckbox';
+                hiddenInput.value = 'false';
+
+                // Visual checkmark box
+                const checkmarkBox = document.createElement('div');
+                checkmarkBox.style.width = '22px';
+                checkmarkBox.style.height = '22px';
+                checkmarkBox.style.minWidth = '22px';
+                checkmarkBox.style.border = '2px solid rgba(0, 0, 0, 0.2)';
+                checkmarkBox.style.borderRadius = '6px';
+                checkmarkBox.style.display = 'flex';
+                checkmarkBox.style.alignItems = 'center';
+                checkmarkBox.style.justifyContent = 'center';
+                checkmarkBox.style.transition = 'all 0.2s';
+                checkmarkBox.style.background = 'rgba(255, 255, 255, 0.6)';
+                checkmarkBox.innerHTML = '<span style="font-size: 14px; font-weight: bold; color: #ffffff; display: none;">✓</span>';
+
+                const span = document.createElement('span');
+                span.textContent = 'Yes / Checked';
+
+                label.appendChild(checkmarkBox);
+                label.appendChild(span);
+                label.appendChild(hiddenInput);
+                div.appendChild(label);
+                area.appendChild(div);
+
+                // Toggle handler
+                label.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const isChecked = hiddenInput.value === 'true';
+                    hiddenInput.value = isChecked ? 'false' : 'true';
+                    if (hiddenInput.value === 'true') {
+                        checkmarkBox.style.background = 'linear-gradient(135deg, #007aff, #5856d6)';
+                        checkmarkBox.style.borderColor = '#007aff';
+                        checkmarkBox.querySelector('span').style.display = 'block';
+                    } else {
+                        checkmarkBox.style.background = 'rgba(255, 255, 255, 0.6)';
+                        checkmarkBox.style.borderColor = 'rgba(0, 0, 0, 0.2)';
+                        checkmarkBox.querySelector('span').style.display = 'none';
+                    }
+                    // Auto-submit for checkbox
+                    submitField();
+                });
+            } else if (ft === 'radio' && field.options) {
+                const div = document.createElement('div');
+                div.className = 'field-options';
+                field.options.forEach((opt, i) => {
+                    const label = document.createElement('label');
+                    label.className = 'field-option';
+                    const rb = document.createElement('input');
+                    rb.type = 'radio';
+                    rb.name = 'fieldValueRadio';
+                    rb.value = opt;
+                    rb.id = `radio_${i}`;
+                    const span = document.createElement('span');
+                    span.textContent = opt;
+                    label.appendChild(rb);
+                    label.appendChild(span);
+                    div.appendChild(label);
+
+                    // Auto-submit when radio is selected
+                    rb.addEventListener('change', () => {
+                        if (rb.checked) {
+                            submitField();
+                        }
+                    });
+                });
+                area.appendChild(div);
+            } else if (ft === 'select' && field.options) {
+                const sel = document.createElement('select');
+                sel.className = 'field-input';
+                sel.id = 'fieldValueSelect';
+                const def = document.createElement('option');
+                def.value = '';
+                def.textContent = '-- Select an option --';
+                sel.appendChild(def);
+                field.options.forEach(opt => {
+                    const o = document.createElement('option');
+                    o.value = opt;
+                    o.textContent = opt;
+                    sel.appendChild(o);
+                });
+                area.appendChild(sel);
+            } else if (ft === 'textarea') {
+                const ta = document.createElement('textarea');
+                ta.className = 'field-input';
+                ta.id = 'fieldValueTextarea';
+                ta.rows = 4;
+                ta.placeholder = field.label;
+                area.appendChild(ta);
+            } else {
+                // text, email, phone, date, number, signature, file, etc.
+                const inp = document.createElement('input');
+                inp.className = 'field-input';
+                inp.id = 'fieldValueInput';
+                inp.type = ft === 'date' ? 'date' : ft === 'email' ? 'email' : ft === 'number' ? 'number' : 'text';
+                inp.placeholder = field.label;
+                area.appendChild(inp);
+            }
+        }
+
+        function getFieldValue() {
+            const ft = (fieldsDefinition[currentFieldIndex]?.field_type || 'text').toLowerCase();
+
+            if (ft === 'checkbox') {
+                const cb = $('fieldValueCheckbox');
+                return cb ? (cb.value === 'true' ? 'true' : 'false') : '';
+            }
+            if (ft === 'radio') {
+                const checked = document.querySelector('input[name="fieldValueRadio"]:checked');
+                return checked ? checked.value : '';
+            }
+            if (ft === 'select') {
+                return $('fieldValueSelect')?.value || '';
+            }
+            if (ft === 'textarea') {
+                return $('fieldValueTextarea')?.value || '';
+            }
+            return $('fieldValueInput')?.value || '';
+        }
+
+        // ========================
+        // Submit field
+        // ========================
+        async function submitField() {
+            if (currentFieldIndex < 0 || !requestId) return;
+
+            const field = fieldsDefinition[currentFieldIndex];
+            const ft = (field.field_type || 'text').toLowerCase();
+            const value = getFieldValue();
+
+            // For checkbox/radio, allow submission even if empty (checkbox defaults to false, radio may not be selected)
+            if (ft !== 'checkbox' && ft !== 'radio') {
+                if (!value.trim()) {
+                    alert('Please enter a value');
+                    return;
+                }
+            }
+            const baseUrl = $('baseUrl').value.trim();
+            const apiKey = $('apiKey').value.trim();
+
+            // Submit via REST API
+            try {
+                const res = await fetch(`${baseUrl}/api/application_form/submit-field?request_id=${requestId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-shared-key': apiKey
+                    },
+                    body: JSON.stringify({ field_key: field.field_key, value })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: res.statusText }));
+                    throw new Error(err.detail || 'Submit failed');
+                }
+
+                const data = await res.json();
+                fieldsCollected[field.field_key] = value;
+                logEvent('success', 'field_submitted_rest', `${field.field_key} = "${value}"`);
+
+                // Add next field definition to our list if provided
+                if (data.next_field) {
+                    fieldsDefinition.push(data.next_field);
+                }
+
+                updateFieldsTable();
+
+                // Disable submit, show next button
+                $('submitFieldBtn').disabled = true;
+
+                if (data.is_complete) {
+                    $('fieldCard').classList.remove('active');
+                    $('completionBanner').classList.add('active');
+                    updateStep(3, true);
+                } else if (data.next_field) {
+                    $('nextFieldBtn').classList.remove('hidden');
+                }
+
+            } catch (err) {
+                logEvent('error', 'submit_error', err.message);
+                alert(`Failed to submit: ${err.message}`);
+            }
+        }
+
+        // ========================
+        // Finalize
+        // ========================
+        async function finalizeForm() {
+            if (!requestId) return;
+            const baseUrl = $('baseUrl').value.trim();
+            const apiKey = $('apiKey').value.trim();
+
+            try {
+                const res = await fetch(`${baseUrl}/api/application_form/finalize?request_id=${requestId}`, {
+                    method: 'POST',
+                    headers: { 'x-shared-key': apiKey }
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: res.statusText }));
+                    throw new Error(err.detail || 'Finalize failed');
+                }
+
+                const data = await res.json();
+                logEvent('success', 'finalized', `All ${data.total_fields} fields finalized`);
+                isFinalized = true;
+
+                // Update finalized info display
+                if (data.finalized_at) {
+                    $('finalizedAt').textContent = new Date(data.finalized_at).toLocaleString();
+                    $('finalizedInfo').style.display = 'block';
+                }
+                if (data.output_pdf) {
+                    $('outputPdfPath').textContent = data.output_pdf;
+                    outputPdfUrl = data.output_pdf;
+                }
+
+                // Show download button
+                $('downloadBtn').style.display = 'inline-block';
+                updateStep(4, true);
+                updateStep(5);
+
+                alert('Form finalized successfully!');
+
+            } catch (err) {
+                logEvent('error', 'finalize_error', err.message);
+                alert(`Failed to finalize: ${err.message}`);
+            }
+        }
+
+        // ========================
+        // Download finalized PDF
+        // ========================
+        async function downloadFinalizedPDF() {
+            if (!requestId) return;
+            const baseUrl = $('baseUrl').value.trim();
+            const apiKey = $('apiKey').value.trim();
+
+            try {
+                // Check if finalized PDF is available
+                const infoRes = await fetch(`${baseUrl}/api/application_form/request-info/${requestId}`, {
+                    headers: { 'x-shared-key': apiKey }
+                });
+
+                if (!infoRes.ok) {
+                    throw new Error('Failed to get request info');
+                }
+
+                const info = await infoRes.json();
+
+                if (info.status !== 'completed') {
+                    alert('Form must be finalized before downloading. Please click "Finalize Form" first.');
+                    return;
+                }
+
+                // Download the PDF
+                const pdfRes = await fetch(`${baseUrl}/api/application_form/pdf/${requestId}`, {
+                    headers: { 'x-shared-key': apiKey }
+                });
+
+                if (!pdfRes.ok) {
+                    const err = await pdfRes.json().catch(() => ({ detail: pdfRes.statusText }));
+                    throw new Error(err.detail || 'Failed to download PDF');
+                }
+
+                const blob = await pdfRes.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = info.filename?.replace('.pdf', '_filled.pdf') || 'application_form_filled.pdf';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                logEvent('success', 'pdf_downloaded', 'Finalized PDF downloaded successfully');
+                updateStep(5, true);
+
+            } catch (err) {
+                logEvent('error', 'download_error', err.message);
+                alert(`Failed to download PDF: ${err.message}`);
+            }
+        }
+
+        // ========================
+        // Reset form
+        // ========================
+        function resetForm() {
+            // Reset state
+            socket = null;
+            requestId = null;
+            fieldsDefinition = [];
+            fieldsCollected = {};
+            currentFieldIndex = -1;
+            selectedFile = null;
+            isFinalized = false;
+            outputPdfUrl = null;
+
+            // Reset UI
+            $('fileInput').value = '';
+            $('selectedFile').style.display = 'none';
+            $('uploadBtn').disabled = false;
+            $('uploadBtn').textContent = 'Upload & Extract Fields';
+            $('progressCard').classList.add('hidden');
+            $('eventsCard').classList.add('hidden');
+            $('fieldCard').classList.remove('active');
+            $('completionBanner').classList.remove('active');
+            $('fieldsOverviewCard').classList.add('hidden');
+            $('completedFieldsCard').classList.add('hidden');
+            $('finalizedInfo').style.display = 'none';
+            $('downloadBtn').style.display = 'none';
+            $('bulkFillPanel').style.display = 'none';
+            $('bulkFillStatus').textContent = 'Select a form type and click "Fill All Remaining" to auto-fill all unfilled fields.';
+            $('bulkFillSubmit').disabled = false;
+            $('bulkFillSubmit').textContent = 'Fill All Remaining';
+
+            // Reset steps
+            for (let i = 1; i <= 5; i++) {
+                $(`step${i}`).classList.remove('active', 'completed');
+            }
+
+            clearEventsLog();
+        }
+
+        // ========================
+        // Step indicator update
+        // ========================
+        function updateStep(stepNum, markCompleted = false) {
+            for (let i = 1; i <= 5; i++) {
+                const step = $(`step${i}`);
+                step.classList.remove('active');
+                if (i < stepNum || (i === stepNum && markCompleted)) {
+                    step.classList.add('completed');
+                } else if (i === stepNum) {
+                    step.classList.add('active');
+                }
+            }
+        }
+
+        // ========================
+        // Bulk fill / randomize
+        // ========================
+        function toggleBulkFill() {
+            const panel = $('bulkFillPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // --- Random data generators ---
+        function randomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function randomDate(minYear, maxYear) {
+            const y = randomInt(minYear, maxYear);
+            const m = randomInt(1, 12);
+            const d = randomInt(1, 28);
+            return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        }
+
+        function randomPhone() {
+            const patterns = [
+                `0${randomInt(70,90)}-${String(randomInt(1000,9999)).padStart(4,'0')}-${String(randomInt(1000,9999)).padStart(4,'0')}`,
+                `0${randomInt(80,90)}-${String(randomInt(1000,9999)).padStart(4,'0')}-${String(randomInt(1000,9999)).padStart(4,'0')}`,
+            ];
+            return patterns[randomInt(0, patterns.length - 1)];
+        }
+
+        function randomPostalCode() {
+            return `${String(randomInt(100, 999))}-${String(randomInt(1000, 9999))}`;
+        }
+
+        function randomAddress() {
+            const jpPrefectures = ['Tokyo', 'Osaka', 'Kyoto', 'Hokkaido', 'Aichi', 'Fukuoka', 'Kanagawa', 'Hyogo', 'Saitama', 'Chiba'];
+            return `${randomInt(1,9)}-${randomInt(1,9)}-${randomInt(100,999)} ${randomInt(1,5)}-chome, ${jpPrefectures[randomInt(0, jpPrefectures.length-1)]}`;
+        }
+
+        function randomEmail(firstName, lastName) {
+            const domains = ['example.com', 'test.jp', 'sample.org', 'mail.example.jp'];
+            const patterns = [
+                `${lastName}.${firstName}`,
+                `${lastName}${firstName}`,
+                `${firstName}.${lastName}`,
+                `${lastName}${randomInt(1,99)}`,
+            ];
+            return `${patterns[randomInt(0, patterns.length-1)]}@${domains[randomInt(0, domains.length-1)]}`;
+        }
+
+        function randomCompanyName() {
+            const names = [
+                'Tanaka Corporation', 'Sakura Industries', 'Fuji Tech Co., Ltd.',
+                'Nippon Digital Solutions', 'Yamamoto Trading', 'Tokyo Software Inc.',
+                'Shibuya Holdings', 'Asahi Global Services', 'Meiji Systems Ltd.',
+                'Kanto Electronics', 'Pacific Bridge Partners', 'Rising Sun Logistics',
+            ];
+            return names[randomInt(0, names.length - 1)];
+        }
+
+        function randomSchoolName() {
+            const schools = [
+                'University of Tokyo', 'Kyoto University', 'Osaka University',
+                'Waseda University', 'Keio University', 'Tohoku University',
+                'Nagoya University', 'Hokkaido University', 'Tokyo Institute of Technology',
+                'Sophia University',
+            ];
+            return schools[randomInt(0, schools.length - 1)];
+        }
+
+        function randomBankName() {
+            const banks = [
+                'Mitsubishi UFJ Bank', 'Sumitomo Mitsui Banking Corp', 'Mizuho Bank',
+                'Japan Post Bank', 'Resona Bank', 'Norinchukin Bank',
+            ];
+            return banks[randomInt(0, banks.length - 1)];
+        }
+
+        function randomAccountNumber() {
+            return String(randomInt(1000000, 9999999));
+        }
+
+        function randomBranchName() {
+            const branches = ['Shinjuku', 'Shibuya', 'Ginza', 'Ikebukuro', 'Ueno', 'Roppongi', 'Akasaka', 'Marunouchi'];
+            return branches[randomInt(0, branches.length - 1)];
+        }
+
+        function randomHospitalName() {
+            const hospitals = [
+                'Tokyo Central Hospital', 'Osaka Medical Center', 'Kyoto Prefectural Hospital',
+                'Nippon General Hospital', 'Sakura Clinic', 'Fuji Medical Center',
+            ];
+            return hospitals[randomInt(0, hospitals.length - 1)];
+        }
+
+        function randomDiagnosis() {
+            const diagnoses = ['Upper respiratory infection', 'Gastritis', 'Lower back pain',
+                'Hypertension', 'Allergic rhinitis', 'Dermatitis'];
+            return diagnoses[randomInt(0, diagnoses.length - 1)];
+        }
+
+        // --- Form type data profiles ---
+        function getFormTypeProfile(type) {
+            const profiles = {
+                generic: {
+                    firstName: ['Taro', 'Hanako', 'Kenji', 'Yuki', 'Akira'][randomInt(0, 4)],
+                    lastName: ['Tanaka', 'Suzuki', 'Sato', 'Takahashi', 'Watanabe'][randomInt(0, 4)],
+                    birthYear: randomInt(1960, 2000),
+                },
+                personal_japanese: {
+                    firstName: ['Taro', 'Hanako', 'Kenji', 'Yuki', 'Akira', 'Sakura', 'Haruto'][randomInt(0, 6)],
+                    lastName: ['Tanaka', 'Suzuki', 'Sato', 'Takahashi', 'Watanabe', 'Ito', 'Yamamoto', 'Nakamura'][randomInt(0, 7)],
+                    birthYear: randomInt(1960, 2000),
+                },
+                personal_foreign: {
+                    firstName: ['John', 'Maria', 'David', 'Sarah', 'Michael', 'Emma'][randomInt(0, 5)],
+                    lastName: ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia'][randomInt(0, 5)],
+                    birthYear: randomInt(1960, 2000),
+                },
+                employment: {
+                    firstName: ['Taro', 'Hanako', 'Kenji'][randomInt(0, 2)],
+                    lastName: ['Tanaka', 'Suzuki', 'Sato'][randomInt(0, 2)],
+                    birthYear: randomInt(1975, 1998),
+                    companyName: randomCompanyName(),
+                    department: ['Engineering', 'Sales', 'Marketing', 'Finance', 'HR', 'Operations'][randomInt(0, 5)],
+                    position: ['Manager', 'Senior Engineer', 'Director', 'Analyst', 'Coordinator'][randomInt(0, 4)],
+                    hireYear: randomInt(2005, 2023),
+                },
+                visa: {
+                    firstName: ['Taro', 'Maria', 'Chen', 'Kim'][randomInt(0, 3)],
+                    lastName: ['Tanaka', 'Smith', 'Wang', 'Park'][randomInt(0, 3)],
+                    birthYear: randomInt(1970, 2000),
+                    nationality: ['Japanese', 'American', 'Chinese', 'Korean', 'Vietnamese', 'Indian'][randomInt(0, 5)],
+                    entryYear: randomInt(2018, 2025),
+                    visaType: ['Work', 'Student', 'Spouse', 'Permanent Resident', 'Engineer'][randomInt(0, 4)],
+                },
+                bank: {
+                    firstName: ['Taro', 'Hanako'][randomInt(0, 1)],
+                    lastName: ['Tanaka', 'Suzuki'][randomInt(0, 1)],
+                    birthYear: randomInt(1960, 1995),
+                    bankName: randomBankName(),
+                    branchName: randomBranchName(),
+                },
+                medical: {
+                    firstName: ['Taro', 'Hanako', 'Kenji'][randomInt(0, 2)],
+                    lastName: ['Tanaka', 'Sato', 'Yamamoto'][randomInt(0, 2)],
+                    birthYear: randomInt(1950, 2005),
+                    hospitalName: randomHospitalName(),
+                    diagnosis: randomDiagnosis(),
+                },
+                education: {
+                    firstName: ['Taro', 'Yuki', 'Haruto'][randomInt(0, 2)],
+                    lastName: ['Tanaka', 'Suzuki', 'Takahashi'][randomInt(0, 2)],
+                    birthYear: randomInt(1995, 2006),
+                    schoolName: randomSchoolName(),
+                    major: ['Computer Science', 'Economics', 'Engineering', 'Law', 'Medicine', 'Literature'][randomInt(0, 5)],
+                    enrollmentYear: randomInt(2014, 2024),
+                    graduationYear: randomInt(2018, 2028),
+                },
+            };
+            return profiles[type] || profiles.generic;
+        }
+
+        // --- Smart field value generator ---
+        function generateFieldValue(field, profile) {
+            const key = (field.field_key || '').toLowerCase();
+            const label = (field.label || '').toLowerCase();
+            const ft = (field.field_type || 'text').toLowerCase();
+            const combined = `${key} ${label}`;
+
+            // Checkbox / Radio / Select
+            if (ft === 'checkbox') {
+                return Math.random() > 0.3 ? 'true' : 'false';
+            }
+            if (ft === 'radio' && field.options?.length) {
+                return field.options[randomInt(0, field.options.length - 1)];
+            }
+            if (ft === 'select' && field.options?.length) {
+                return field.options[randomInt(0, field.options.length - 1)];
+            }
+
+            // --- Smart matching based on key/label keywords ---
+
+            // Name fields
+            if (combined.includes('first_name') || combined.includes('given_name') || key === 'first_name') {
+                return profile.firstName || 'Taro';
+            }
+            if (combined.includes('last_name') || combined.includes('family_name') || combined.includes('surname') || key === 'last_name') {
+                return profile.lastName || 'Tanaka';
+            }
+            if (combined.includes('full_name') || combined.includes('name')) {
+                return `${profile.lastName || 'Tanaka'} ${profile.firstName || 'Taro'}`;
+            }
+            if (combined.includes('kana') || combined.includes('furigana')) {
+                return `${profile.lastName || 'タナカ'} ${profile.firstName || 'タロウ'}`;
+            }
+
+            // Date fields
+            if (ft === 'date' || combined.includes('date') || combined.includes('birthday') || combined.includes('birth_date') || key.includes('birth')) {
+                if (combined.includes('entry') || combined.includes('arrival')) {
+                    return randomDate(2018, 2025);
+                }
+                if (combined.includes('hire') || combined.includes('employment')) {
+                    return randomDate(2005, 2023);
+                }
+                if (combined.includes('enrollment') || combined.includes('matriculation')) {
+                    return randomDate(2014, 2024);
+                }
+                if (combined.includes('graduation')) {
+                    return randomDate(2018, 2028);
+                }
+                if (profile.birthYear && (combined.includes('birth') || combined.includes('dob'))) {
+                    return randomDate(profile.birthYear, profile.birthYear);
+                }
+                return randomDate(1960, 2000);
+            }
+
+            // Year fields (number type)
+            if (combined.includes('year') || combined.includes('birth_year')) {
+                if (profile.birthYear && combined.includes('birth')) return String(profile.birthYear);
+                if (combined.includes('hire')) return String(profile.hireYear || randomInt(2005, 2023));
+                if (combined.includes('entry')) return String(profile.entryYear || randomInt(2018, 2025));
+                if (combined.includes('enrollment')) return String(profile.enrollmentYear || randomInt(2014, 2024));
+                if (combined.includes('graduation')) return String(profile.graduationYear || randomInt(2018, 2028));
+                return String(randomInt(1960, 2025));
+            }
+
+            // Email
+            if (ft === 'email' || combined.includes('email') || combined.includes('e-mail') || combined.includes('mail')) {
+                return randomEmail(profile.firstName || 'taro', profile.lastName || 'tanaka');
+            }
+
+            // Phone
+            if (ft === 'phone' || combined.includes('phone') || combined.includes('tel') || combined.includes('mobile')) {
+                return randomPhone();
+            }
+
+            // Address
+            if (ft === 'address' || combined.includes('address') || combined.includes('postal_code') || combined.includes('zip')) {
+                if (combined.includes('postal') || combined.includes('zip')) return randomPostalCode();
+                return randomAddress();
+            }
+
+            // Number fields
+            if (ft === 'number') {
+                if (combined.includes('age')) return String(randomInt(20, 65));
+                if (combined.includes('salary') || combined.includes('income')) return String(randomInt(300, 1200)) + '万円';
+                if (combined.includes('account')) return randomAccountNumber();
+                if (combined.includes('branch')) return randomBranchName();
+                return String(randomInt(1, 999));
+            }
+
+            // Textarea (long text)
+            if (ft === 'textarea') {
+                if (combined.includes('reason') || combined.includes('purpose')) {
+                    return 'For professional development and career advancement.';
+                }
+                if (combined.includes('comment') || combined.includes('note') || combined.includes('remarks')) {
+                    return 'No special remarks.';
+                }
+                if (combined.includes('address')) return randomAddress();
+                return 'N/A';
+            }
+
+            // Signature
+            if (ft === 'signature') {
+                return `${profile.lastName || 'Tanaka'} ${profile.firstName || 'Taro'}`;
+            }
+
+            // Company / organization
+            if (combined.includes('company') || combined.includes('employer') || combined.includes('organization')) {
+                return profile.companyName || randomCompanyName();
+            }
+
+            // Department
+            if (combined.includes('department') || combined.includes('division')) {
+                return profile.department || 'Engineering';
+            }
+
+            // Position / title
+            if (combined.includes('position') || combined.includes('title') || combined.includes('job')) {
+                return profile.position || 'Engineer';
+            }
+
+            // School / university
+            if (combined.includes('school') || combined.includes('university') || combined.includes('college')) {
+                return profile.schoolName || randomSchoolName();
+            }
+
+            // Major / field of study
+            if (combined.includes('major') || combined.includes('field_of_study')) {
+                return profile.major || 'Computer Science';
+            }
+
+            // Nationality
+            if (combined.includes('nationality') || combined.includes('citizenship')) {
+                return profile.nationality || 'Japanese';
+            }
+
+            // Visa
+            if (combined.includes('visa')) {
+                if (combined.includes('type')) return profile.visaType || 'Work';
+                return 'Valid';
+            }
+
+            // Bank / financial
+            if (combined.includes('bank')) {
+                if (combined.includes('name')) return profile.bankName || randomBankName();
+                return profile.bankName || randomBankName();
+            }
+            if (combined.includes('branch') && !combined.includes('department')) {
+                return profile.branchName || randomBranchName();
+            }
+            if (combined.includes('account')) {
+                return randomAccountNumber();
+            }
+
+            // Medical
+            if (combined.includes('hospital') || combined.includes('clinic')) {
+                return profile.hospitalName || randomHospitalName();
+            }
+            if (combined.includes('diagnosis') || combined.includes('condition') || combined.includes('disease')) {
+                return profile.diagnosis || randomDiagnosis();
+            }
+
+            // Nationality / country
+            if (combined.includes('country') || combined.includes('nation')) {
+                return 'Japan';
+            }
+
+            // Gender / sex
+            if (combined.includes('gender') || combined.includes('sex')) {
+                if (field.options?.length) return field.options[randomInt(0, field.options.length - 1)];
+                return Math.random() > 0.5 ? 'Male' : 'Female';
+            }
+
+            // Marital status
+            if (combined.includes('marital') || combined.includes('marriage')) {
+                if (field.options?.length) return field.options[randomInt(0, field.options.length - 1)];
+                return ['Single', 'Married'][randomInt(0, 1)];
+            }
+
+            // Emergency contact
+            if (combined.includes('emergency')) {
+                if (combined.includes('name')) return `${profile.lastName || 'Tanaka'} ${profile.firstName || 'Hanako'}`;
+                if (combined.includes('phone') || combined.includes('contact')) return randomPhone();
+                return randomAddress();
+            }
+
+            // Fallback based on field type
+            if (ft === 'textarea') return 'N/A';
+            if (ft === 'number') return String(randomInt(1, 100));
+            if (ft === 'date') return randomDate(2000, 2025);
+            if (ft === 'email') return 'test@example.com';
+            if (ft === 'phone') return randomPhone();
+
+            // Generic fallback
+            if (field.options?.length) return field.options[randomInt(0, field.options.length - 1)];
+            return `${field.label || field.field_key || 'Field'} value`;
+        }
+
+        // --- Bulk randomize all remaining fields ---
+        async function bulkRandomize() {
+            if (!requestId) return;
+
+            const formType = $('formType').value;
+            const profile = getFormTypeProfile(formType);
+            const baseUrl = $('baseUrl').value.trim();
+            const apiKey = $('apiKey').value.trim();
+
+            const statusEl = $('bulkFillStatus');
+            const submitBtn = $('bulkFillSubmit');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Filling...';
+
+            logEvent('info', 'bulk_fill_started', `Form type: ${formType}`);
+
+            // First, load all field definitions from the server
+            // We need to fetch them all via next-field repeatedly
+            const allFields = [...fieldsDefinition];
+            const seenKeys = new Set(allFields.map(f => f.field_key));
+
+            // Fetch remaining fields from server
+            let attempts = 0;
+            while (attempts < 50) {
+                try {
+                    const nextRes = await fetch(`${baseUrl}/api/application_form/next-field?request_id=${requestId}`, {
+                        headers: { 'x-shared-key': apiKey }
+                    });
+
+                    if (!nextRes.ok) break;
+                    const nextField = await nextRes.json();
+                    if (!nextField) break;
+                    if (seenKeys.has(nextField.field_key)) break;
+
+                    allFields.push(nextField);
+                    seenKeys.add(nextField.field_key);
+                } catch (e) {
+                    break;
+                }
+                attempts++;
+            }
+
+            // Update our local fieldsDefinition
+            fieldsDefinition = allFields;
+
+            // Find unfilled fields
+            const unfilled = allFields.filter(f => !(f.field_key in fieldsCollected));
+            const totalToFill = unfilled.length;
+
+            if (totalToFill === 0) {
+                statusEl.textContent = 'All fields are already filled!';
+                logEvent('info', 'bulk_fill_no_fields', 'No remaining fields to fill');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Fill All Remaining';
+                return;
+            }
+
+            statusEl.textContent = `Filling ${totalToFill} remaining fields...`;
+
+            let filledCount = 0;
+            let errorCount = 0;
+
+            for (const field of unfilled) {
+                const value = generateFieldValue(field, profile);
+
+                try {
+                    const res = await fetch(`${baseUrl}/api/application_form/submit-field?request_id=${requestId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-shared-key': apiKey
+                        },
+                        body: JSON.stringify({ field_key: field.field_key, value })
+                    });
+
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({ detail: res.statusText }));
+                        logEvent('error', 'bulk_fill_error', `${field.field_key}: ${err.detail || res.statusText}`);
+                        errorCount++;
+                        continue;
+                    }
+
+                    const data = await res.json();
+                    fieldsCollected[field.field_key] = value;
+                    filledCount++;
+
+                    // Add any new next_field from response
+                    if (data.next_field && !seenKeys.has(data.next_field.field_key)) {
+                        allFields.push(data.next_field);
+                        seenKeys.add(data.next_field.field_key);
+                        fieldsDefinition = allFields;
+                    }
+
+                    statusEl.textContent = `Filled ${filledCount}/${totalToFill} fields...`;
+                    updateFieldsTable();
+
+                    // Small delay between requests
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                } catch (err) {
+                    logEvent('error', 'bulk_fill_error', `${field.field_key}: ${err.message}`);
+                    errorCount++;
+                }
+            }
+
+            // Update UI
+            updateFieldsTable();
+            updateStep(3, true);
+
+            if (errorCount === 0) {
+                statusEl.textContent = `✅ Successfully filled all ${filledCount} fields!`;
+                logEvent('success', 'bulk_fill_completed', `${filledCount} fields filled`);
+            } else {
+                statusEl.textContent = `⚠️ Filled ${filledCount} fields, ${errorCount} errors.`;
+                logEvent('info', 'bulk_fill_partial', `${filledCount} filled, ${errorCount} errors`);
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Fill All Remaining';
+
+            // Show completion banner if all filled
+            const remaining = allFields.filter(f => !(f.field_key in fieldsCollected));
+            if (remaining.length === 0) {
+                $('completionBanner').classList.add('active');
+            }
+        }
+
+        // ========================
+        // Fields table
+        // ========================
+        function updateFieldsTable() {
+            const tbody = $('fieldsTableBody');
+            tbody.innerHTML = '';
+
+            fieldsDefinition.forEach((f, i) => {
+                const isFilled = f.field_key in fieldsCollected;
+                const tr = document.createElement('tr');
+                tr.className = isFilled ? 'filled' : 'pending';
+                tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td><code style="font-size:11px;">${f.field_key}</code></td>
+                    <td>${f.label}</td>
+                    <td><span class="field-type-badge">${f.field_type}</span></td>
+                    <td>${f.required ? '✅' : '—'}</td>
+                    <td><span class="status-badge ${isFilled ? 'filled' : 'pending'}">${isFilled ? 'Filled' : 'Pending'}</span></td>
+                    <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${isFilled ? fieldsCollected[f.field_key] : ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const filledCount = Object.keys(fieldsCollected).length;
+            const total = fieldsDefinition.length;
+            $('fieldsProgressText').textContent = `${filledCount} / ${total} filled`;
+
+            // Update completed fields summary
+            updateCompletedFieldsSummary();
+        }
+
+        // ========================
+        // Completed fields summary
+        // ========================
+        function updateCompletedFieldsSummary() {
+            const content = $('completedFieldsContent');
+            const card = $('completedFieldsCard');
+
+            if (Object.keys(fieldsCollected).length === 0) {
+                card.classList.add('hidden');
+                return;
+            }
+
+            card.classList.remove('hidden');
+            content.innerHTML = '';
+
+            fieldsDefinition.forEach((f) => {
+                if (f.field_key in fieldsCollected) {
+                    const div = document.createElement('div');
+                    div.className = 'completed-field-item';
+                    div.innerHTML = `
+                        <div class="completed-field-key">${f.field_key}</div>
+                        <div class="completed-field-label">${f.label}</div>
+                        <div class="completed-field-value">${fieldsCollected[f.field_key]}</div>
+                    `;
+                    content.appendChild(div);
+                }
+            });
+        }
+
+        // ========================
+        // Events log
+        // ========================
+        function logEvent(type, name, dataStr) {
+            const log = $('eventsLog');
+            const div = document.createElement('div');
+            div.className = `event-item ${type}`;
+            const ts = new Date().toLocaleTimeString();
+            div.innerHTML = `<span class="event-time">[${ts}]</span><span class="event-name">${name}</span><span class="event-data">${dataStr || ''}</span>`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearEventsLog() {
+            $('eventsLog').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
